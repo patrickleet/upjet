@@ -22,7 +22,7 @@ func TestReferenceTargets(t *testing.T) {
 		APIVersion:        "user.example.org/v1",
 		Extractor:         "E()",
 		RefFieldName:      "UserRef",
-		AdditionalTargets: []ReferenceTarget{{Type: "Machine", APIVersion: "user.example.org/v1"}},
+		AdditionalTargets: &[]ReferenceTarget{{Type: "Machine", APIVersion: "user.example.org/v1"}},
 	}
 	want := []ReferenceTarget{
 		{Type: "github.com/example/apis/user/v1.Human", TerraformName: "human", APIVersion: "user.example.org/v1", Extractor: "E()"},
@@ -67,40 +67,61 @@ func TestReferenceValidateTargets(t *testing.T) {
 		"Valid": {
 			ref: Reference{
 				Type: "Human", APIVersion: "user.example.org/v1",
-				AdditionalTargets: []ReferenceTarget{{Type: "Machine", APIVersion: "user.example.org/v1"}},
+				AdditionalTargets: &[]ReferenceTarget{{Type: "Machine", APIVersion: "user.example.org/v1"}},
 			},
 		},
 		"SameKindDifferentGroups": {
 			ref: Reference{
 				Type: "a/project/v1.Grant", APIVersion: "project.example.org/v1",
-				AdditionalTargets: []ReferenceTarget{{Type: "a/user/v1.Grant", APIVersion: "user.example.org/v1"}},
+				AdditionalTargets: &[]ReferenceTarget{{Type: "a/user/v1.Grant", APIVersion: "user.example.org/v1"}},
 			},
 		},
 		"MissingAPIVersion": {
 			ref: Reference{
 				Type:              "Human",
-				AdditionalTargets: []ReferenceTarget{{Type: "Machine", APIVersion: "user.example.org/v1"}},
+				AdditionalTargets: &[]ReferenceTarget{{Type: "Machine", APIVersion: "user.example.org/v1"}},
 			},
 			want: errors.New(`reference target "Human" (Terraform name "") must have a Type and an APIVersion`),
 		},
 		"MissingType": {
 			ref: Reference{
 				Type: "Human", APIVersion: "user.example.org/v1",
-				AdditionalTargets: []ReferenceTarget{{TerraformName: "machine"}},
+				AdditionalTargets: &[]ReferenceTarget{{TerraformName: "machine"}},
 			},
 			want: errors.New(`reference target "" (Terraform name "machine") must have a Type and an APIVersion`),
 		},
 		"MalformedAPIVersion": {
 			ref: Reference{
 				Type: "Human", APIVersion: "v1",
-				AdditionalTargets: []ReferenceTarget{{Type: "Machine", APIVersion: "user.example.org/v1"}},
+				AdditionalTargets: &[]ReferenceTarget{{Type: "Machine", APIVersion: "user.example.org/v1"}},
 			},
 			want: errors.New(`reference target "Human" must have an APIVersion of the form group/version, got "v1"`),
+		},
+		"EmptyGroup": {
+			ref: Reference{
+				Type: "Human", APIVersion: "/v1",
+				AdditionalTargets: &[]ReferenceTarget{{Type: "Machine", APIVersion: "user.example.org/v1"}},
+			},
+			want: errors.New(`reference target "Human" must have an APIVersion of the form group/version, got "/v1"`),
+		},
+		"EmptyVersion": {
+			ref: Reference{
+				Type: "Human", APIVersion: "user.example.org/v1",
+				AdditionalTargets: &[]ReferenceTarget{{Type: "Machine", APIVersion: "user.example.org/"}},
+			},
+			want: errors.New(`reference target "Machine" must have an APIVersion of the form group/version, got "user.example.org/"`),
+		},
+		"OnlySlash": {
+			ref: Reference{
+				Type: "Human", APIVersion: "/",
+				AdditionalTargets: &[]ReferenceTarget{{Type: "Machine", APIVersion: "user.example.org/v1"}},
+			},
+			want: errors.New(`reference target "Human" must have an APIVersion of the form group/version, got "/"`),
 		},
 		"Duplicate": {
 			ref: Reference{
 				Type: "a/user/v1.Human", APIVersion: "user.example.org/v1",
-				AdditionalTargets: []ReferenceTarget{{Type: "b/user/v1.Human", APIVersion: "user.example.org/v1"}},
+				AdditionalTargets: &[]ReferenceTarget{{Type: "b/user/v1.Human", APIVersion: "user.example.org/v1"}},
 			},
 			want: errors.New(`reference targets must be distinct, but user.example.org/v1, Kind=Human is configured more than once`),
 		},
@@ -111,5 +132,25 @@ func TestReferenceValidateTargets(t *testing.T) {
 				t.Errorf("ValidateTargets(): -want error, +got error:\n%s", diff)
 			}
 		})
+	}
+}
+
+// Reference must stay comparable: providers compare it with == and use it in
+// map keys. This doesn't compile if a non-comparable field is added.
+func TestReferenceIsComparable(t *testing.T) {
+	targets := &[]ReferenceTarget{{TerraformName: "b"}}
+	r := Reference{TerraformName: "a", AdditionalTargets: targets}
+	if r == (Reference{}) {
+		t.Error("a configured Reference must not equal the zero Reference")
+	}
+	if r != (Reference{TerraformName: "a", AdditionalTargets: targets}) {
+		t.Error("identical References must be equal")
+	}
+	_ = map[Reference]bool{r: true}
+}
+
+func TestReferenceTargetsEmpty(t *testing.T) {
+	if got := (Reference{TerraformName: "a", AdditionalTargets: &[]ReferenceTarget{}}).Targets(); got != nil {
+		t.Errorf("Targets() with no additional targets: want nil, got %v", got)
 	}
 }

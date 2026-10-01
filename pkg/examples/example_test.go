@@ -17,7 +17,7 @@ func TestGetSelectorField(t *testing.T) {
 		TerraformName: "dummy_human",
 		Type:          "a/user/v1.Human",
 		APIVersion:    "user.example.org/v1",
-		AdditionalTargets: []config.ReferenceTarget{
+		AdditionalTargets: &[]config.ReferenceTarget{
 			{TerraformName: "dummy_machine", Type: "a/user/v1.Machine", APIVersion: "user.example.org/v1"},
 			{TerraformName: "dummy_project_grant", Type: "a/project/v1.Grant", APIVersion: "project.example.org/v1"},
 			{TerraformName: "dummy_user_grant", Type: "a/user/v1.Grant", APIVersion: "user.example.org/v1"},
@@ -50,6 +50,20 @@ func TestGetSelectorField(t *testing.T) {
 			value: "${dummy_user_grant.g.id}",
 			cfg:   multiKind,
 			want:  map[string]any{"matchLabels": labels("g"), "kind": "Grant", "apiVersion": "user.example.org/v1"},
+		},
+		// The default and an additional target can be the same Terraform
+		// resource at different API versions; the default needs no kind.
+		"SameTerraformResourceAsDefault": {
+			value: "${dummy_human.alice.id}",
+			cfg: config.Reference{
+				TerraformName: "dummy_human",
+				Type:          "a/user/v1.Human",
+				APIVersion:    "user.example.org/v1",
+				AdditionalTargets: &[]config.ReferenceTarget{
+					{TerraformName: "dummy_human", Type: "a/user/v2.Human", APIVersion: "user.example.org/v2"},
+				},
+			},
+			want: map[string]any{"matchLabels": labels("alice")},
 		},
 		"NotAReference": {
 			value: "literal",

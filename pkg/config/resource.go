@@ -241,9 +241,10 @@ type Reference struct {
 	// the field. When set, the generated reference and selector fields
 	// accept an optional apiVersion and kind that choose the target to
 	// resolve. The target configured by this Reference is the default, used
-	// when neither is set. Not supported for list fields.
+	// when neither is set. Not supported for list fields. It's a pointer so
+	// that Reference stays comparable with ==.
 	// Optional
-	AdditionalTargets []ReferenceTarget
+	AdditionalTargets *[]ReferenceTarget
 }
 
 // ReferenceTarget is an additional resource a Reference can resolve. See
@@ -269,7 +270,7 @@ type ReferenceTarget struct {
 // configured by r itself, followed by r.AdditionalTargets. It returns nil if
 // r has no AdditionalTargets.
 func (r Reference) Targets() []ReferenceTarget {
-	if len(r.AdditionalTargets) == 0 {
+	if r.AdditionalTargets == nil || len(*r.AdditionalTargets) == 0 {
 		return nil
 	}
 	return append([]ReferenceTarget{{
@@ -277,7 +278,7 @@ func (r Reference) Targets() []ReferenceTarget {
 		TerraformName: r.TerraformName,
 		APIVersion:    r.APIVersion,
 		Extractor:     r.Extractor,
-	}}, r.AdditionalTargets...)
+	}}, *r.AdditionalTargets...)
 }
 
 // Kind returns the kind of the target, i.e. the name of its Type.
@@ -305,7 +306,7 @@ func (r Reference) ValidateTargets() error {
 		if t.Type == "" || t.APIVersion == "" {
 			return errors.Errorf("reference target %q (Terraform name %q) must have a Type and an APIVersion", t.Type, t.TerraformName)
 		}
-		if strings.Count(t.APIVersion, "/") != 1 {
+		if gv := strings.Split(t.APIVersion, "/"); len(gv) != 2 || gv[0] == "" || gv[1] == "" {
 			return errors.Errorf("reference target %q must have an APIVersion of the form group/version, got %q", t.Type, t.APIVersion)
 		}
 		id := t.APIVersion + ", Kind=" + t.Kind()

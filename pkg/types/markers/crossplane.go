@@ -41,7 +41,7 @@ func (o CrossplaneOptions) String() string {
 	} else if o.Type != "" {
 		m += fmt.Sprintf("%s%s\n", markerPrefixRefType, o.Type)
 	}
-	if o.Extractor != "" && len(o.AdditionalTargets) == 0 {
+	if o.Extractor != "" && len(o.Targets()) == 0 {
 		m += fmt.Sprintf("%s%s\n", markerPrefixRefExtractor, o.Extractor)
 	}
 	if o.RefFieldName != "" {

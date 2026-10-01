@@ -364,7 +364,7 @@ type Reference struct {
     // AdditionalTargets are other resources whose instances can populate
     // the field. See "References to more than one kind" below.
     // Optional
-    AdditionalTargets []ReferenceTarget
+    AdditionalTargets *[]ReferenceTarget
 }
 ```
 
@@ -419,7 +419,7 @@ the other targets in `AdditionalTargets`; the target configured by the
 ```go
 r.References["user_id"] = config.Reference{
     TerraformName: "example_human_user",
-    AdditionalTargets: []config.ReferenceTarget{
+    AdditionalTargets: &[]config.ReferenceTarget{
         {TerraformName: "example_machine_user"},
     },
 }

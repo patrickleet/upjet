@@ -154,8 +154,8 @@ func (rr *Injector) setTargetTypes(ref *config.Reference, configResources map[st
 		}
 		ref.APIVersion = v
 	}
-	targets := make([]config.ReferenceTarget, len(ref.AdditionalTargets))
-	for i, t := range ref.AdditionalTargets {
+	targets := make([]config.ReferenceTarget, len(*ref.AdditionalTargets))
+	for i, t := range *ref.AdditionalTargets {
 		if t.TerraformName != "" && t.Type == "" {
 			p, err := rr.getTypePath(t.TerraformName, configResources)
 			if err != nil {
@@ -172,7 +172,7 @@ func (rr *Injector) setTargetTypes(ref *config.Reference, configResources map[st
 		}
 		targets[i] = t
 	}
-	ref.AdditionalTargets = targets
+	ref.AdditionalTargets = &targets
 	return ref.ValidateTargets()
 }
 
@@ -200,7 +200,7 @@ func (rr *Injector) SetReferenceTypes(configResources map[string]*config.Resourc
 				ref.Type = crdTypePath
 				r.References[attr] = ref
 			}
-			if len(ref.AdditionalTargets) > 0 {
+			if len(ref.Targets()) > 0 {
 				if err := rr.setTargetTypes(&ref, configResources); err != nil {
 					return errors.Wrapf(err, "cannot set the reference targets of %s.%s", name, attr)
 				}
