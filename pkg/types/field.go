@@ -346,6 +346,9 @@ func NewReferenceField(g *Builder, cfg *config.Resource, r *resource, sch *schem
 		return nil, err
 	}
 	f.Reference = ref
+	if _, isSlice := f.FieldType.(*types.Slice); isSlice && len(ref.AdditionalTargets) > 0 {
+		return nil, errors.Errorf("field %q: references with additional targets are not supported for list fields", f.Name.Snake)
+	}
 
 	f.Comment.Reference = *ref
 	f.Schema.Optional = true

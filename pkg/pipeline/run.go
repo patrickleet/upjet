@@ -124,7 +124,7 @@ func (r *PipelineRunner) Run(pc *config.Provider) []string { //nolint:gocyclo
 		resourcesGroups[group][resource.Version][name] = resource
 	}
 
-	exampleGeneratorOpts := []examples.GeneratorOption{examples.WithCRDScope(r.Scope), examples.WithNamespace(pc.ExampleManifestConfiguration.ManagedResourceNamespace)}
+	exampleGeneratorOpts := []examples.GeneratorOption{examples.WithCRDScope(r.Scope), examples.WithNamespace(pc.ExampleManifestConfiguration.ManagedResourceNamespace), examples.WithRootGroup(pc.RootGroup)}
 	if r.Scope == tjtypes.CRDScopeNamespaced {
 		exampleGeneratorOpts = append(exampleGeneratorOpts, examples.WithLocalSecretRefs())
 	}

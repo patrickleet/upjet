@@ -383,6 +383,33 @@ func TestBuild(t *testing.T) {
 // +kubebuilder:validation:XValidation:rule="!('*' in self.managementPolicies || 'Create' in self.managementPolicies || 'Update' in self.managementPolicies) || has(self.forProvider.name) || (has(self.initProvider) && has(self.initProvider.name))",message="spec.forProvider.name is a required parameter"`,
 			},
 		},
+		"MultiKind_References_List_Field": {
+			args: args{
+				crdScope: CRDScopeCluster,
+				cfg: &config.Resource{
+					Name: "test_resource",
+					TerraformResource: &schema.Resource{
+						Schema: map[string]*schema.Schema{
+							"user_ids": {
+								Type:     schema.TypeList,
+								Optional: true,
+								Elem:     &schema.Schema{Type: schema.TypeString},
+							},
+						},
+					},
+					References: map[string]config.Reference{
+						"user_ids": {
+							Type:              "Human",
+							APIVersion:        "user.example.org/v1",
+							AdditionalTargets: []config.ReferenceTarget{{Type: "Machine", APIVersion: "user.example.org/v1"}},
+						},
+					},
+				},
+			},
+			want: want{
+				err: errors.Wrapf(errors.New(`field "user_ids": references with additional targets are not supported for list fields`), `cannot build the Types for resource "test_resource"`),
+			},
+		},
 		"Invalid_Schema_Type": {
 			args: args{
 				crdScope: CRDScopeCluster,

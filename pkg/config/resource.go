@@ -232,6 +232,89 @@ type Reference struct {
 	// <field-name>Selector.
 	// Optional
 	SelectorFieldName string
+	// APIVersion is the API version (group/version) of the referenced type.
+	// It's only used by references with AdditionalTargets, and is set
+	// automatically when TerraformName is set.
+	// Optional
+	APIVersion string
+	// AdditionalTargets are other resources whose instances can populate
+	// the field. When set, the generated reference and selector fields
+	// accept an optional apiVersion and kind that choose the target to
+	// resolve. The target configured by this Reference is the default, used
+	// when neither is set. Not supported for list fields.
+	// Optional
+	AdditionalTargets []ReferenceTarget
+}
+
+// ReferenceTarget is an additional resource a Reference can resolve. See
+// Reference.AdditionalTargets.
+type ReferenceTarget struct {
+	// Type is the Go type name of the CRD if it is in the same package or
+	// <package-path>.<type-name> if it is in a different package. APIVersion
+	// must be set when Type is used. Prefer TerraformName.
+	Type string
+	// TerraformName is the name of the Terraform resource which will be
+	// referenced. Type and APIVersion are derived from it.
+	TerraformName string
+	// APIVersion is the API version (group/version) of the referenced type.
+	// It's set automatically when TerraformName is set.
+	APIVersion string
+	// Extractor is the function to be used to extract value from the
+	// referenced type. Defaults to getting external name.
+	// Optional
+	Extractor string
+}
+
+// Targets returns the targets of a multi-kind reference: the default target
+// configured by r itself, followed by r.AdditionalTargets. It returns nil if
+// r has no AdditionalTargets.
+func (r Reference) Targets() []ReferenceTarget {
+	if len(r.AdditionalTargets) == 0 {
+		return nil
+	}
+	return append([]ReferenceTarget{{
+		Type:          r.Type,
+		TerraformName: r.TerraformName,
+		APIVersion:    r.APIVersion,
+		Extractor:     r.Extractor,
+	}}, r.AdditionalTargets...)
+}
+
+// Kind returns the kind of the target, i.e. the name of its Type.
+func (t ReferenceTarget) Kind() string {
+	return t.Type[strings.LastIndex(t.Type, ".")+1:]
+}
+
+// IsAmbiguousKind reports whether more than one of the supplied targets has
+// the supplied kind, in which case an apiVersion is needed to choose one.
+func IsAmbiguousKind(targets []ReferenceTarget, kind string) bool {
+	n := 0
+	for _, t := range targets {
+		if t.Kind() == kind {
+			n++
+		}
+	}
+	return n > 1
+}
+
+// ValidateTargets returns an error if the targets of a multi-kind reference
+// can't be told apart, or lack a Type or APIVersion.
+func (r Reference) ValidateTargets() error {
+	seen := map[string]bool{}
+	for _, t := range r.Targets() {
+		if t.Type == "" || t.APIVersion == "" {
+			return errors.Errorf("reference target %q (Terraform name %q) must have a Type and an APIVersion", t.Type, t.TerraformName)
+		}
+		if strings.Count(t.APIVersion, "/") != 1 {
+			return errors.Errorf("reference target %q must have an APIVersion of the form group/version, got %q", t.Type, t.APIVersion)
+		}
+		id := t.APIVersion + ", Kind=" + t.Kind()
+		if seen[id] {
+			return errors.Errorf("reference targets must be distinct, but %s is configured more than once", id)
+		}
+		seen[id] = true
+	}
+	return nil
 }
 
 // Sensitive represents configurations to handle sensitive information
