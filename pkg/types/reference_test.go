@@ -307,7 +307,7 @@ func TestBuilder_generateReferenceFields(t *testing.T) {
 					Reference: &config.Reference{
 						Type:       "github.com/upbound/official-providers/provider-dummy/apis/user/v1alpha1.Human",
 						APIVersion: "user.dummy.example.org/v1alpha1",
-						AdditionalTargets: []config.ReferenceTarget{{
+						AdditionalTargets: &[]config.ReferenceTarget{{
 							Type:       "github.com/upbound/official-providers/provider-dummy/apis/user/v1alpha1.Machine",
 							APIVersion: "user.dummy.example.org/v1alpha1",
 						}},
@@ -348,7 +348,7 @@ func TestBuilder_generateReferenceFields(t *testing.T) {
 					Reference: &config.Reference{
 						Type:       "github.com/upbound/official-providers/provider-dummy/apis/project/v1alpha1.Grant",
 						APIVersion: "project.dummy.example.org/v1alpha1",
-						AdditionalTargets: []config.ReferenceTarget{{
+						AdditionalTargets: &[]config.ReferenceTarget{{
 							Type:       "github.com/upbound/official-providers/provider-dummy/apis/user/v1alpha1.Grant",
 							APIVersion: "user.dummy.example.org/v1alpha1",
 						}, {

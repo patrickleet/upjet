@@ -156,14 +156,14 @@ func (rr *Injector) setTargetTypes(ref *config.Reference, configResources map[st
 	}
 	// copy the targets so that a configuration shared between
 	// resources isn't modified in place.
-	targets := make([]config.ReferenceTarget, len(ref.AdditionalTargets))
-	for i, t := range ref.AdditionalTargets {
+	targets := make([]config.ReferenceTarget, len(*ref.AdditionalTargets))
+	for i, t := range *ref.AdditionalTargets {
 		var err error
 		if targets[i], err = rr.setTargetType(t, configResources); err != nil {
 			return err
 		}
 	}
-	ref.AdditionalTargets = targets
+	ref.AdditionalTargets = &targets
 	return ref.ValidateTargets()
 }
 
@@ -211,7 +211,7 @@ func (rr *Injector) SetReferenceTypes(configResources map[string]*config.Resourc
 				ref.Type = crdTypePath //nolint:staticcheck // still handling deprecated field behavior
 				r.References[attr] = ref
 			}
-			if len(ref.AdditionalTargets) > 0 {
+			if len(ref.Targets()) > 0 {
 				if err := rr.setTargetTypes(&ref, configResources); err != nil {
 					return errors.Wrapf(err, "cannot set the reference targets of %s.%s", name, attr)
 				}

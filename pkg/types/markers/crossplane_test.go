@@ -86,7 +86,7 @@ func TestCrossplaneOptions_StringMultiKind(t *testing.T) {
 				Type:              "github.com/example/provider/apis/user/v1alpha1.Human",
 				APIVersion:        "user.example.org/v1alpha1",
 				RefFieldName:      "UserRef",
-				AdditionalTargets: []config.ReferenceTarget{{Type: "Machine", APIVersion: "user.example.org/v1alpha1"}},
+				AdditionalTargets: &[]config.ReferenceTarget{{Type: "Machine", APIVersion: "user.example.org/v1alpha1"}},
 			},
 			want: `+crossplane:generate:reference:type=github.com/example/provider/apis/user/v1alpha1.Human
 +crossplane:generate:reference:apiVersion=user.example.org/v1alpha1
@@ -99,7 +99,7 @@ func TestCrossplaneOptions_StringMultiKind(t *testing.T) {
 			ref: config.Reference{
 				Type:       "Human",
 				APIVersion: "user.example.org/v1alpha1",
-				AdditionalTargets: []config.ReferenceTarget{{
+				AdditionalTargets: &[]config.ReferenceTarget{{
 					Type:       "Machine",
 					APIVersion: "user.example.org/v1alpha1",
 					Extractor:  "github.com/example/provider/config/common.MachineID()",

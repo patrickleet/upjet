@@ -495,7 +495,7 @@ func TestBuild(t *testing.T) {
 						"user_ids": {
 							Type:              "Human",
 							APIVersion:        "user.example.org/v1",
-							AdditionalTargets: []config.ReferenceTarget{{Type: "Machine", APIVersion: "user.example.org/v1"}},
+							AdditionalTargets: &[]config.ReferenceTarget{{Type: "Machine", APIVersion: "user.example.org/v1"}},
 						},
 					},
 				},

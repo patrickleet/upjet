@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -307,7 +306,7 @@ func transformFields(r *config.Resource, params map[string]any, omittedFields []
 				ref["namespace"] = namespace
 			}
 			params[fn.LowerCamelComputed+"SecretRef"] = getRefField(v, ref)
-		case !isZeroReference(r.References[fieldPath]):
+		case r.References[fieldPath] != config.Reference{}:
 			switch v.(type) {
 			case []any:
 				l := sch.Type == schema.TypeList || sch.Type == schema.TypeSet
@@ -337,12 +336,6 @@ func getNameRefField(v any) any {
 	return refArr
 }
 
-// isZeroReference reports whether r is the zero Reference. Reference isn't
-// comparable with == because of its AdditionalTargets slice.
-func isZeroReference(r config.Reference) bool {
-	return reflect.ValueOf(r).IsZero()
-}
-
 func getSelectorField(refVal any, cfg config.Reference) any {
 	ref := map[string]string{
 		labelExampleName: defaultExampleName,
@@ -359,8 +352,12 @@ func getSelectorField(refVal any, cfg config.Reference) any {
 	// names another one, so select a non-default example target explicitly.
 	targets := cfg.Targets()
 	for i, t := range targets {
-		if i == 0 || t.TerraformName != parts.Resource {
+		if t.TerraformName != parts.Resource {
 			continue
+		}
+		if i == 0 {
+			// the default target needs no kind
+			break
 		}
 		sel["kind"] = t.Kind()
 		if config.IsAmbiguousKind(targets, t.Kind()) {

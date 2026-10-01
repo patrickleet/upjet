@@ -38,7 +38,7 @@ func TestSetReferenceTypes(t *testing.T) {
 			rootGroup: "dummy.example.org",
 			refs: config.References{"user_id": {
 				TerraformName: "dummy_human",
-				AdditionalTargets: []config.ReferenceTarget{
+				AdditionalTargets: &[]config.ReferenceTarget{
 					{TerraformName: "dummy_machine", Extractor: "E()"},
 					{TerraformName: "dummy_root"},
 					{Type: "github.com/other/apis/user/v1.Human", APIVersion: "user.other.example.org/v1"},
@@ -48,7 +48,7 @@ func TestSetReferenceTypes(t *testing.T) {
 				TerraformName: "dummy_human",
 				Type:          "github.com/example/provider/apis/user/v1alpha1.Human",
 				APIVersion:    "user.dummy.example.org/v1alpha1",
-				AdditionalTargets: []config.ReferenceTarget{
+				AdditionalTargets: &[]config.ReferenceTarget{
 					{TerraformName: "dummy_machine", Type: "github.com/example/provider/apis/user/v1alpha1.Machine", APIVersion: "user.dummy.example.org/v1alpha1", Extractor: "E()"},
 					{TerraformName: "dummy_root", Type: "github.com/example/provider/apis/dummy/v1beta1.Root", APIVersion: "dummy.example.org/v1beta1"},
 					{Type: "github.com/other/apis/user/v1.Human", APIVersion: "user.other.example.org/v1"},
@@ -58,7 +58,7 @@ func TestSetReferenceTypes(t *testing.T) {
 		"MultiKindWithoutRootGroup": {
 			refs: config.References{"user_id": {
 				TerraformName:     "dummy_human",
-				AdditionalTargets: []config.ReferenceTarget{{TerraformName: "dummy_machine"}},
+				AdditionalTargets: &[]config.ReferenceTarget{{TerraformName: "dummy_machine"}},
 			}},
 			err: errors.Wrap(errors.New("cannot determine the API version of Terraform resource dummy_human: the root group is not set"), "cannot set the reference targets of dummy_grant.user_id"),
 		},
@@ -66,7 +66,7 @@ func TestSetReferenceTypes(t *testing.T) {
 			rootGroup: "dummy.example.org",
 			refs: config.References{"user_id": {
 				TerraformName:     "dummy_human",
-				AdditionalTargets: []config.ReferenceTarget{{Type: "Machine"}},
+				AdditionalTargets: &[]config.ReferenceTarget{{Type: "Machine"}},
 			}},
 			err: errors.Wrap(errors.New(`reference target "Machine" (Terraform name "") must have a Type and an APIVersion`), "cannot set the reference targets of dummy_grant.user_id"),
 		},
@@ -74,7 +74,7 @@ func TestSetReferenceTypes(t *testing.T) {
 			rootGroup: "dummy.example.org",
 			refs: config.References{"user_id": {
 				TerraformName:     "dummy_human",
-				AdditionalTargets: []config.ReferenceTarget{{TerraformName: "dummy_unknown"}},
+				AdditionalTargets: &[]config.ReferenceTarget{{TerraformName: "dummy_unknown"}},
 			}},
 			err: errors.Wrap(errors.New("cannot find configuration for Terraform resource: dummy_unknown"), "cannot set the reference targets of dummy_grant.user_id"),
 		},
