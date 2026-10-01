@@ -62,6 +62,14 @@ func WithLocalSecretRefs() GeneratorOption {
 	}
 }
 
+// WithRootGroup sets the provider's root API group, which is used to set the
+// API versions of multi-kind reference targets.
+func WithRootGroup(rootGroup string) GeneratorOption {
+	return func(g *Generator) {
+		g.RootGroup = rootGroup
+	}
+}
+
 // WithCRDScope sets the CRD scope for the generator.
 func WithCRDScope(scope tjtypes.CRDScope) GeneratorOption {
 	return func(g *Generator) {
@@ -306,7 +314,7 @@ func transformFields(r *config.Resource, params map[string]any, omittedFields []
 				params[ref.LowerCamelComputed] = getNameRefField(v)
 			default:
 				sel := name.SelectorFieldName(fn, r.References[fieldPath].SelectorFieldName)
-				params[sel.LowerCamelComputed] = getSelectorField(v)
+				params[sel.LowerCamelComputed] = getSelectorField(v, r.References[fieldPath])
 			}
 		default:
 			params[fn.LowerCamelComputed] = v
@@ -328,16 +336,36 @@ func getNameRefField(v any) any {
 	return refArr
 }
 
-func getSelectorField(refVal any) any {
+func getSelectorField(refVal any, cfg config.Reference) any {
 	ref := map[string]string{
 		labelExampleName: defaultExampleName,
 	}
-	if parts := reference.MatchRefParts(fmt.Sprintf("%v", refVal)); parts != nil {
-		ref[labelExampleName] = parts.ExampleName
-	}
-	return map[string]any{
+	sel := map[string]any{
 		"matchLabels": ref,
 	}
+	parts := reference.MatchRefParts(fmt.Sprintf("%v", refVal))
+	if parts == nil {
+		return sel
+	}
+	ref[labelExampleName] = parts.ExampleName
+	// A multi-kind reference resolves its default target unless the selector
+	// names another one, so select a non-default example target explicitly.
+	targets := cfg.Targets()
+	for i, t := range targets {
+		if t.TerraformName != parts.Resource {
+			continue
+		}
+		if i == 0 {
+			// the default target needs no kind
+			break
+		}
+		sel["kind"] = t.Kind()
+		if config.IsAmbiguousKind(targets, t.Kind()) {
+			sel["apiVersion"] = t.APIVersion
+		}
+		break
+	}
+	return sel
 }
 
 func getRefField(v any, ref map[string]any) any {

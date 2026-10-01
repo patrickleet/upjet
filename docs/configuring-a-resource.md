@@ -356,6 +356,15 @@ type Reference struct {
     // <field-name>Selector.
     // Optional
     SelectorFieldName string
+    // APIVersion is the API version (group/version) of the referenced type.
+    // It's only used by references with AdditionalTargets, and is set
+    // automatically when TerraformName is set.
+    // Optional
+    APIVersion string
+    // AdditionalTargets are other resources whose instances can populate
+    // the field. See "References to more than one kind" below.
+    // Optional
+    AdditionalTargets *[]ReferenceTarget
 }
 ```
 
@@ -399,6 +408,53 @@ func Configure(p *config.Provider) {
     })
 }
 ```
+
+#### References to more than one kind
+
+Some arguments accept the ID of more than one kind of resource. For example, a
+membership's `user_id` may be the ID of a human user or of a machine user. List
+the other targets in `AdditionalTargets`; the target configured by the
+`Reference` itself is the default:
+
+```go
+r.References["user_id"] = config.Reference{
+    TerraformName: "example_human_user",
+    AdditionalTargets: &[]config.ReferenceTarget{
+        {TerraformName: "example_machine_user"},
+    },
+}
+```
+
+The generated `userIdRef` and `userIdSelector` then accept an optional `kind`,
+and an optional `apiVersion` (group/version), that choose the target:
+
+```yaml
+spec:
+  forProvider:
+    userIdRef:
+      name: alice              # the default target, a HumanUser
+    # userIdRef:
+    #   kind: MachineUser
+    #   name: ci-bot
+    # userIdSelector:
+    #   kind: MachineUser
+    #   matchLabels:
+    #     team: platform
+```
+
+- With neither `kind` nor `apiVersion`, the default target is resolved.
+- `kind` alone is enough when no other target has the same kind. If targets in
+  different API groups share a kind, `apiVersion` is required for that kind.
+- `apiVersion` and `kind` must match a configured target. The CRD validates
+  this, and reference resolution fails with an error listing the targets
+  otherwise. Only the configured targets are ever looked up.
+- Everything else, such as the resolution policies, matching labels and
+  namespaces, works like a single-target reference.
+
+Each target can have its own `Extractor`. A target can also be configured by
+`Type`, in which case its `APIVersion` must be set. Multi-kind references
+aren't supported for list fields. The generated reference and selector types
+are in the `github.com/crossplane/upjet/v2/pkg/resource/kindref` package.
 
 ### Auto Cross Resource Reference Generation
 

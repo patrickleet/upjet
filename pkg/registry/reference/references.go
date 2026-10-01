@@ -25,6 +25,9 @@ const (
 type Injector struct {
 	ModulePath        string
 	ProviderShortName string
+	// RootGroup is the provider's root API group. It's used to set the
+	// APIVersion of multi-kind reference targets.
+	RootGroup string
 }
 
 // NewInjector initializes a new Injector
@@ -126,10 +129,68 @@ func (rr *Injector) getTypePath(tfName string, configResources map[string]*confi
 	return fmt.Sprintf("%s/%s/%s.%s", rr.ModulePath, shortGroup, r.Version, r.Kind), nil
 }
 
+func (rr *Injector) getAPIVersion(tfName string, configResources map[string]*config.Resource) (string, error) {
+	r := configResources[tfName]
+	if r == nil {
+		return "", errors.Errorf("cannot find configuration for Terraform resource: %s", tfName)
+	}
+	if rr.RootGroup == "" {
+		return "", errors.Errorf("cannot determine the API version of Terraform resource %s: the root group is not set", tfName)
+	}
+	group := rr.RootGroup
+	if r.ShortGroup != "" {
+		group = strings.ToLower(r.ShortGroup) + "." + rr.RootGroup
+	}
+	return group + "/" + r.Version, nil
+}
+
+// setTargetTypes sets the Type and APIVersion of the targets of a multi-kind
+// reference that are configured by TerraformName, and validates the targets.
+func (rr *Injector) setTargetTypes(ref *config.Reference, configResources map[string]*config.Resource) error {
+	if ref.TerraformName != "" && ref.APIVersion == "" {
+		v, err := rr.getAPIVersion(ref.TerraformName, configResources)
+		if err != nil {
+			return err
+		}
+		ref.APIVersion = v
+	}
+	// copy the targets so that a configuration shared between
+	// resources isn't modified in place.
+	targets := make([]config.ReferenceTarget, len(*ref.AdditionalTargets))
+	for i, t := range *ref.AdditionalTargets {
+		var err error
+		if targets[i], err = rr.setTargetType(t, configResources); err != nil {
+			return err
+		}
+	}
+	ref.AdditionalTargets = &targets
+	return ref.ValidateTargets()
+}
+
+// setTargetType sets the Type and APIVersion of a target configured by
+// TerraformName, unless they're already set.
+func (rr *Injector) setTargetType(t config.ReferenceTarget, configResources map[string]*config.Resource) (config.ReferenceTarget, error) {
+	if t.TerraformName == "" {
+		return t, nil
+	}
+	var err error
+	if t.Type == "" {
+		if t.Type, err = rr.getTypePath(t.TerraformName, configResources); err != nil {
+			return t, err
+		}
+	}
+	if t.APIVersion == "" {
+		if t.APIVersion, err = rr.getAPIVersion(t.TerraformName, configResources); err != nil {
+			return t, err
+		}
+	}
+	return t, nil
+}
+
 // SetReferenceTypes resolves reference types of configured references
 // using their TerraformNames.
 func (rr *Injector) SetReferenceTypes(configResources map[string]*config.Resource) error {
-	for _, r := range configResources {
+	for name, r := range configResources {
 		for attr, ref := range r.References {
 			if ref.Type == "" && ref.TerraformName != "" { //nolint:staticcheck // still handling deprecated field behavior
 				crdTypePath, err := rr.getTypePath(ref.TerraformName, configResources)
@@ -148,6 +209,12 @@ func (rr *Injector) SetReferenceTypes(configResources map[string]*config.Resourc
 					continue
 				}
 				ref.Type = crdTypePath //nolint:staticcheck // still handling deprecated field behavior
+				r.References[attr] = ref
+			}
+			if len(ref.Targets()) > 0 {
+				if err := rr.setTargetTypes(&ref, configResources); err != nil {
+					return errors.Wrapf(err, "cannot set the reference targets of %s.%s", name, attr)
+				}
 				r.References[attr] = ref
 			}
 		}
