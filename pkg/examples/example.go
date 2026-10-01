@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -59,6 +60,14 @@ type GeneratorOption func(*Generator)
 func WithLocalSecretRefs() GeneratorOption {
 	return func(g *Generator) {
 		g.localSecretRefs = true
+	}
+}
+
+// WithRootGroup sets the provider's root API group, which is used to set the
+// API versions of multi-kind reference targets.
+func WithRootGroup(rootGroup string) GeneratorOption {
+	return func(g *Generator) {
+		g.RootGroup = rootGroup
 	}
 }
 
@@ -298,7 +307,7 @@ func transformFields(r *config.Resource, params map[string]any, omittedFields []
 				ref["namespace"] = namespace
 			}
 			params[fn.LowerCamelComputed+"SecretRef"] = getRefField(v, ref)
-		case r.References[fieldPath] != config.Reference{}:
+		case !isZeroReference(r.References[fieldPath]):
 			switch v.(type) {
 			case []any:
 				l := sch.Type == schema.TypeList || sch.Type == schema.TypeSet
@@ -306,7 +315,7 @@ func transformFields(r *config.Resource, params map[string]any, omittedFields []
 				params[ref.LowerCamelComputed] = getNameRefField(v)
 			default:
 				sel := name.SelectorFieldName(fn, r.References[fieldPath].SelectorFieldName)
-				params[sel.LowerCamelComputed] = getSelectorField(v)
+				params[sel.LowerCamelComputed] = getSelectorField(v, r.References[fieldPath])
 			}
 		default:
 			params[fn.LowerCamelComputed] = v
@@ -328,16 +337,38 @@ func getNameRefField(v any) any {
 	return refArr
 }
 
-func getSelectorField(refVal any) any {
+// isZeroReference reports whether r is the zero Reference. Reference isn't
+// comparable with == because of its AdditionalTargets slice.
+func isZeroReference(r config.Reference) bool {
+	return reflect.ValueOf(r).IsZero()
+}
+
+func getSelectorField(refVal any, cfg config.Reference) any {
 	ref := map[string]string{
 		labelExampleName: defaultExampleName,
 	}
-	if parts := reference.MatchRefParts(fmt.Sprintf("%v", refVal)); parts != nil {
-		ref[labelExampleName] = parts.ExampleName
-	}
-	return map[string]any{
+	sel := map[string]any{
 		"matchLabels": ref,
 	}
+	parts := reference.MatchRefParts(fmt.Sprintf("%v", refVal))
+	if parts == nil {
+		return sel
+	}
+	ref[labelExampleName] = parts.ExampleName
+	// A multi-kind reference resolves its default target unless the selector
+	// names another one, so select a non-default example target explicitly.
+	targets := cfg.Targets()
+	for i, t := range targets {
+		if i == 0 || t.TerraformName != parts.Resource {
+			continue
+		}
+		sel["kind"] = t.Kind()
+		if config.IsAmbiguousKind(targets, t.Kind()) {
+			sel["apiVersion"] = t.APIVersion
+		}
+		break
+	}
+	return sel
 }
 
 func getRefField(v any, ref map[string]any) any {

@@ -75,3 +75,51 @@ func TestCrossplaneOptions_String(t *testing.T) {
 		})
 	}
 }
+
+func TestCrossplaneOptions_StringMultiKind(t *testing.T) {
+	cases := map[string]struct {
+		ref  config.Reference
+		want string
+	}{
+		"DefaultExtractors": {
+			ref: config.Reference{
+				Type:              "github.com/example/provider/apis/user/v1alpha1.Human",
+				APIVersion:        "user.example.org/v1alpha1",
+				RefFieldName:      "UserRef",
+				AdditionalTargets: []config.ReferenceTarget{{Type: "Machine", APIVersion: "user.example.org/v1alpha1"}},
+			},
+			want: `+crossplane:generate:reference:type=github.com/example/provider/apis/user/v1alpha1.Human
++crossplane:generate:reference:apiVersion=user.example.org/v1alpha1
++crossplane:generate:reference:type=Machine
++crossplane:generate:reference:apiVersion=user.example.org/v1alpha1
++crossplane:generate:reference:refFieldName=UserRef
+`,
+		},
+		"OneCustomExtractor": {
+			ref: config.Reference{
+				Type:       "Human",
+				APIVersion: "user.example.org/v1alpha1",
+				AdditionalTargets: []config.ReferenceTarget{{
+					Type:       "Machine",
+					APIVersion: "user.example.org/v1alpha1",
+					Extractor:  "github.com/example/provider/config/common.MachineID()",
+				}},
+			},
+			want: `+crossplane:generate:reference:type=Human
++crossplane:generate:reference:apiVersion=user.example.org/v1alpha1
++crossplane:generate:reference:extractor=github.com/crossplane/crossplane-runtime/v2/pkg/reference.ExternalName()
++crossplane:generate:reference:type=Machine
++crossplane:generate:reference:apiVersion=user.example.org/v1alpha1
++crossplane:generate:reference:extractor=github.com/example/provider/config/common.MachineID()
+`,
+		},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			got := CrossplaneOptions{Reference: tc.ref}.String()
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("CrossplaneOptions.String(): -want result, +got result: %s", diff)
+			}
+		})
+	}
+}

@@ -90,6 +90,34 @@ func TestTransformPackages(t *testing.T) {
 				},
 			},
 		},
+		"SuccessfulMultiKindTransformation": {
+			reason: "Transformation of a resolver for a multi-kind reference, which resolves one of several targets in a switch, transforms each target's resolution.",
+			args: args{
+				apiGroupSuffix:          "example.m.crossplane.io",
+				apiResolverPackage:      "github.com/example/provider-example/internal/apis",
+				resolverFilePattern:     "zz_generated.resolvers.go",
+				inputFilePath:           "testdata/multikind.resolvers.go.txt",
+				ignorePackageLoadErrors: true,
+				patterns:                []string{"./testdata"},
+			},
+			want: want{
+				transformedPath: "testdata/multikind.resolvers.transformed.go.txt",
+			},
+		},
+		"MultiKindTransformationIdempotency": {
+			reason: "The transformation of a multi-kind reference resolver is idempotent.",
+			args: args{
+				apiGroupSuffix:          "example.m.crossplane.io",
+				apiResolverPackage:      "github.com/example/provider-example/internal/apis",
+				resolverFilePattern:     "zz_generated.resolvers.go",
+				inputFilePath:           "testdata/multikind.resolvers.transformed.go.txt",
+				ignorePackageLoadErrors: true,
+				patterns:                []string{"./testdata"},
+			},
+			want: want{
+				transformedPath: "testdata/multikind.resolvers.transformed.go.txt",
+			},
+		},
 		"SuccessfulTransformationWithGroupOverrides": {
 			reason: "Transformation of the source file with a group overrides configuration succeeds with the expected transformed file.",
 			args: args{
